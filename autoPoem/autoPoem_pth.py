@@ -1,3 +1,13 @@
+'''
+Author: myzhibei myzhibei@qq.com
+Date: 2023-06-12 16:21:16
+LastEditors: myzhibei myzhibei@qq.com
+LastEditTime: 2023-06-14 16:28:38
+FilePath: \自动写诗\autoPoem\autoPoem_pth.py
+Description: 
+
+Copyright (c) 2023 by myzhibei myzhibei@qq.com, All Rights Reserved. 
+'''
 import torch as t
 import numpy as np
 from torch.utils.data import DataLoader
@@ -166,6 +176,7 @@ def train():
             loss.backward()
             Configimizer.step()
             loss_meter.add(loss.item())
+
             # 进行可视化
             if (1+li) % Config.plot_every == 0:
                 print("训练损失为%s" % (str(loss_meter.mean)))
