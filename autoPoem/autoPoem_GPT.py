@@ -1,3 +1,13 @@
+'''
+Author: myzhibei myzhibei@qq.com
+Date: 2023-06-13 19:31:53
+LastEditors: myzhibei myzhibei@qq.com
+LastEditTime: 2023-06-14 16:28:21
+FilePath: \自动写诗\autoPoem\autoPoem_GPT.py
+Description: 
+
+Copyright (c) 2023 by myzhibei myzhibei@qq.com, All Rights Reserved. 
+'''
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader

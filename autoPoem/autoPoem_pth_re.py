@@ -1,9 +1,21 @@
-import torch as t
+'''
+Author: myzhibei myzhibei@qq.com
+Date: 2023-06-14 14:47:26
+LastEditors: myzhibei myzhibei@qq.com
+LastEditTime: 2023-06-14 19:21:50
+FilePath: \自动写诗\autoPoem\autoPoem_pth_re.py
+Description: 
+
+Copyright (c) 2023 by myzhibei myzhibei@qq.com, All Rights Reserved. 
+'''
+import torch
 import numpy as np
+import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from torch import optim
 from torch import nn
 import math
+
 import tqdm
 import os
 import datetime
@@ -12,13 +24,14 @@ import torch.nn as nn
 
 class Config(object):
     num_layers = 3  # LSTM层数
-    data_path = 'data/'  # 诗歌的文本文件存放路径
-    import platform
-    plat = platform.system().lower()
-    if plat == 'windows':
-        log_dir = r"D:\Log"  # windows tensorbroad不支持中文路径
-    elif plat == 'linux':
-        log_dir = r"./logs"  # 日志文件路径
+    data_path = './data'  # 诗歌的文本文件存放路径
+    # import platform
+    # plat = platform.system().lower()
+    # if plat == 'windows':
+    #     log_dir = r"D:\Log"  # windows tensorbroad不支持中文路径
+    # elif plat == 'linux':
+    #     log_dir = r"./logs"  # 日志文件路径
+    log_dir = r"./logs"  # 日志文件路径
     os.makedirs(log_dir, exist_ok=True)
 
     pickle_path = 'tang.npz'  # 预处理好的二进制文件
@@ -28,6 +41,7 @@ class Config(object):
     lr = 1e-3
     weight_decay = 1e-4
     use_gpu = True
+    datasize = 2000
     epoch = 1
     batch_size = 16
     num_workers = 2
@@ -118,18 +132,18 @@ class PoetryModel(nn.Module):
 
 def train():
     if Config.use_gpu:
-        Config.device = t.device("cuda")
+        Config.device = torch.device("cuda")
     else:
-        Config.device = t.device("cpu")
+        Config.device = torch.device("cpu")
     device = Config.device
     # 获取数据
     datas = np.load(
         f"{Config.data_path}/{Config.pickle_path}", allow_pickle=True)
     data = datas['data']
-    data = data[:2000]  # 笔记本用少量数据先测试代码跑通
+    # data = data[:Config.datasize]  # 笔记本用少量数据先测试代码跑通
     ix2word = datas['ix2word'].item()
     word2ix = datas['word2ix'].item()
-    data = t.from_numpy(data)
+    data = torch.from_numpy(data)
     print(type(word2ix))
 
     dataloader = DataLoader(data,
@@ -145,7 +159,8 @@ def train():
     criterion = nn.CrossEntropyLoss()
     if os.path.exists(Config.model_path):
         print(f"Load model {Config.model_path}")
-        model.load_state_dict(t.load(Config.model_path, map_location='cpu'))
+        model.load_state_dict(torch.load(
+            Config.model_path, map_location='cpu'))
     # 转移到相应计算设备上
     model.to(device)
     loss_meter = AverageValueMeter()
@@ -162,6 +177,7 @@ def train():
 
     for epoch in range(Config.epoch):
         loss_meter.reset()
+        total_loss = 0
         for li, data_ in tqdm.tqdm(enumerate(dataloader)):
             # print(data_.shape)
             data_ = data_.long().transpose(1, 0).contiguous()
@@ -171,34 +187,64 @@ def train():
             # n个句子，前n-1句作为输入，后n-1句作为输出，二者一一对应
             input_, target = data_[:-1, :], data_[1:, :]
             output, _ = model(input_)
-            # print("Here",output.shape)
+            print("Here", output.shape)
             # 这里为什么view(-1)
             print(target.shape, target.view(-1).shape)
             loss = criterion(output, target.view(-1))
             loss.backward()
             Configimizer.step()
             loss_meter.add(loss.item())
+
+            total_loss += loss.item()
+            average_loss = total_loss / (len(data) // Config.batch_size)
+            train_losses.append(average_loss)
+
             # 进行可视化
             if (1+li) % Config.plot_every == 0:
                 print("训练损失为%s" % (str(loss_meter.mean)))
-                f.write("训练损失为%s" % (str(loss_meter.mean)))
+                log_file.write("训练损失为%s" % (str(loss_meter.mean)))
+                # 保存最优模型
+                if loss_meter.mean < best_loss:
+                    best_loss = loss_meter.mean
+                    best_model_path = os.path.join(
+                        Config.log_dir, 'best_model.pth')
+                    torch.save(model.state_dict(), best_model_path)
+
+                log_line = f'Epoch [{epoch+1}/{Config.epoch}], Average Train Loss: {average_loss:.4f}'
+                print(log_line)
+                log_file.write(log_line + "\n")
                 for word in list(u"春江花朝秋月夜"):
                     gen_poetry = ''.join(
                         generate(model, word, ix2word, word2ix))
                     print(gen_poetry)
-                    f.write(gen_poetry)
-                    f.write("\n\n\n")
-                    f.flush()
-        t.save(model.state_dict(), '%s_%s.pth' % (Config.model_prefix, epoch))
-        f.close()
+                    log_file.write(gen_poetry)
+                    log_file.write("\n\n\n")
+                    log_file.flush()
+        plot_losses(train_losses, test_losses, Config.log_dir)
+        torch.save(model.state_dict(), '%s_%s.pth' %
+                   (Config.model_prefix, epoch))
+        log_file.close()
 
+
+def plot_losses(train_losses, test_losses, log_dir):
+    plt.plot(train_losses, label='Train Loss')
+    # plt.plot(test_losses, label='Test Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    loss_plot_path = os.path.join(log_dir, 'loss_plot.png')
+    plt.savefig(loss_plot_path)
+    plt.close()
 
 # 给定首句生成诗歌
+
+
 def generate(model, start_words, ix2word, word2ix, prefix_words=None):
+    model.eval()
     results = list(start_words)
     start_words_len = len(start_words)
     # 第一个词语是<START>
-    input = t.Tensor([word2ix['<START>']]).view(1, 1).long()
+    input = torch.Tensor([word2ix['<START>']]).view(1, 1).long()
     if Config.use_gpu:
         input = input.cuda()
     hidden = None
@@ -236,9 +282,10 @@ def generate(model, start_words, ix2word, word2ix, prefix_words=None):
 
 # 生成藏头诗
 def gen_acrostic(model, start_words, ix2word, word2ix, prefix_words=None):
+    model.eval()
     result = []
     start_words_len = len(start_words)
-    input = (t.Tensor([word2ix['<START>']]).view(1, 1).long())
+    input = (torch.Tensor([word2ix['<START>']]).view(1, 1).long())
     if Config.use_gpu:
         input = input.cuda()
     # 指示已经生成了几句藏头诗
@@ -283,9 +330,10 @@ def userTest():
     model = PoetryModel(len(ix2word), Config.embedding_dim, Config.hidden_dim)
     if os.path.exists(Config.model_path):
         print(f"Load model {Config.model_path}")
-        model.load_state_dict(t.load(Config.model_path, map_location='cpu'))
+        model.load_state_dict(torch.load(
+            Config.model_path, map_location='cpu'))
     if Config.use_gpu:
-        model.to(t.device('cuda'))
+        model.to(torch.device('cuda'))
     print("初始化完成！\n")
     while True:
         print("欢迎使用唐诗生成器，\n"
@@ -297,6 +345,7 @@ def userTest():
             start_words = str(input())
             gen_poetry = ''.join(
                 generate(model, start_words, ix2word, word2ix))
+
             print(f"生成的诗句如下\n {gen_poetry}")
         elif mode == '2':
             print("请输入您想要的诗歌藏头部分，不超过16个字，最好是偶数")
@@ -306,6 +355,11 @@ def userTest():
             print(f"生成的诗句如下\n {gen_poetry}")
         else:
             return
+        generated_poem_path = os.path.join(
+            Config.log_dir, 'generated_poem.txt')
+        with open(generated_poem_path, 'w', ) as file:
+            file.write(start_words)
+            file.write(gen_poetry)
 
 
 if __name__ == '__main__':
