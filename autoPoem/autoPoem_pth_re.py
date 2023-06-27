@@ -2,8 +2,8 @@
 Author: myzhibei myzhibei@qq.com
 Date: 2023-06-14 14:47:26
 LastEditors: myzhibei myzhibei@qq.com
-LastEditTime: 2023-06-19 13:38:40
-FilePath: \评论情感分类d:\QQ\2433127926\FileRecv\文档\SIAT\深度学习CS\实验\自动写诗\autoPoem\autoPoem_pth_re.py
+LastEditTime: 2023-06-28 00:03:11
+FilePath: \自动写诗\autoPoem\autoPoem_pth_re.py
 Description: 
 
 Copyright (c) 2023 by myzhibei myzhibei@qq.com, All Rights Reserved. 
@@ -25,12 +25,12 @@ import torch.nn as nn
 class Config(object):
     num_layers = 3  # LSTM层数
     data_path = './data'  # 诗歌的文本文件存放路径
-    # import platform
-    # plat = platform.system().lower()
-    # if plat == 'windows':
-    #     log_dir = r"D:\Log"  # windows tensorbroad不支持中文路径
-    # elif plat == 'linux':
-    #     log_dir = r"./logs"  # 日志文件路径
+    import platform
+    plat = platform.system().lower()
+    if plat == 'windows':
+        log_dir = r"D:\Log"  # windows tensorbroad不支持中文路径
+    elif plat == 'linux':
+        log_dir = r"./logs"  # 日志文件路径
     log_dir = r"./logs"  # 日志文件路径
     os.makedirs(log_dir, exist_ok=True)
 
@@ -140,7 +140,7 @@ def train():
     datas = np.load(
         f"{Config.data_path}/{Config.pickle_path}", allow_pickle=True)
     data = datas['data']
-    # data = data[:Config.datasize]  # 笔记本用少量数据先测试代码跑通
+    data = data[:Config.datasize]  # 笔记本用少量数据先测试代码跑通
     ix2word = datas['ix2word'].item()
     word2ix = datas['word2ix'].item()
     data = torch.from_numpy(data)
@@ -199,11 +199,9 @@ def train():
             average_loss = total_loss / (len(data) // Config.batch_size)
             train_losses.append(average_loss)
 
-            # 进行可视化
             if (1+li) % Config.plot_every == 0:
-                print("训练损失为%s" % (str(loss_meter.mean)))
-                log_file.write("训练损失为%s" % (str(loss_meter.mean)))
-                # 保存最优模型
+                print("Train Loss : %s" % (str(loss_meter.mean)))
+                log_file.write("Train Loss : %s" % (str(loss_meter.mean)))
                 if loss_meter.mean < best_loss:
                     best_loss = loss_meter.mean
                     best_model_path = os.path.join(
@@ -227,7 +225,6 @@ def train():
 
 def plot_losses(train_losses, test_losses, log_dir):
     plt.plot(train_losses, label='Train Loss')
-    # plt.plot(test_losses, label='Test Loss')
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.legend()
