@@ -2,8 +2,8 @@
 Author: myzhibei myzhibei@qq.com
 Date: 2023-06-14 14:47:26
 LastEditors: myzhibei myzhibei@qq.com
-LastEditTime: 2023-06-14 19:21:50
-FilePath: \自动写诗\autoPoem\autoPoem_pth_re.py
+LastEditTime: 2023-06-19 13:38:40
+FilePath: \评论情感分类d:\QQ\2433127926\FileRecv\文档\SIAT\深度学习CS\实验\自动写诗\autoPoem\autoPoem_pth_re.py
 Description: 
 
 Copyright (c) 2023 by myzhibei myzhibei@qq.com, All Rights Reserved. 
@@ -221,8 +221,7 @@ def train():
                     log_file.write("\n\n\n")
                     log_file.flush()
         plot_losses(train_losses, test_losses, Config.log_dir)
-        torch.save(model.state_dict(), '%s_%s.pth' %
-                   (Config.model_prefix, epoch))
+        torch.save(model.state_dict(), f'{Config.model_prefix}_{epoch}.pth')
         log_file.close()
 
 
